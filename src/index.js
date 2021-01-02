@@ -8,45 +8,49 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 const { connection } = require('./connector')
 
-app.get("/totalRecovered", async (req, res) =>{
-    const recoveredData= await connection.aggregate([
-        {
-            $group :{
-                _id: "total",
-                recovered:{$sum: "$recovered"},
-            },
-    },
-    ]);
-    res.send({data: recoveredData[0]});
-})
 
-app.get("/totalActive", async (req, res) =>{
-    const activeData= await connection.aggregate([
+app.get("/totalRecovered", async (req, res)=>{
+    const recoverData = await connection.aggregate([
         {
-            $group:{
+            $group: {
                 _id: "total",
-                recovered: {$sum : "recovered"},
-                infected: {$sum : "infected"},
+                recovered: { $sum: "$recovered"},
+                // count: { $sum: 1}
             },
         },
     ]);
-    res.send({data: {_id: "total", active:activeData[0].infected - activeData[0].recovered}});
     
+    res.send({data: recoverData[0]});
 })
 
-app.get("/totalDeath", async(req, res) =>{
-    const totalDeathData = await connection.activeData([
+app.get("/totalActive", async (req, res)=>{
+    const activeData = await connection.aggregate([
         {
-            $group:{
+            $group: {
                 _id: "total",
-                death:{$sum :"death"}
+                recovered: {$sum: "$recovered"},
+                infected: {$sum: "$infected"},
+                // active: {$sum: {$subtract: ["$infected", "$recovered"]}}
+            },
+        },
+    ]);
+    // res.send({data: activeData[0]});
+    res.send({data: {_id: "total", active:activeData[0].infected- activeData[0].recovered}});
+})
+
+app.get("/totalDeath", async (req, res)=>{
+    const totalDeathData = await connection.aggregate([
+        {
+            $group: {
+                _id: "total",
+                death: {$sum: "$death"}
             }
         }
     ])
     res.send({data: totalDeathData[0]});
 })
 
-app.get("/hotspotStates", async(req, res) =>{
+app.get("/hotspotStates", async (req, res)=>{
     const DataForRate = await connection.aggregate([
         {
             $project: {
@@ -61,10 +65,10 @@ app.get("/hotspotStates", async(req, res) =>{
     res.send({data: DataForRate});
 })
 
-app.get("/healthyStates", async (req, res) =>{
+app.get("/healthyStates", async (req, res)=>{
     const mortalityData = await connection.aggregate([
         {
-            $project:{
+            $project: {
                 state: "$state",
                 mortality: {$round: [{$divide:["$death", "$infected"]},5]}
             }
